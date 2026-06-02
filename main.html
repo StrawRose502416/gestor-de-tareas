@@ -1,1 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#0f1117"/>
+<meta name="description" content="Gestor de tareas personal"/>
+<title>Mi Gestor de Tareas</title>
 
+<!-- PWA Manifest inline -->
+<script>
+const manifest = {
+  name: "Mi Gestor de Tareas",
+  short_name: "Gestor",
+  description: "Gestor de tareas personal",
+  start_url: ".",
+  display: "standalone",
+  background_color: "#0f1117",
+  theme_color: "#6c63ff",
+  orientation: "portrait",
+  icons: [
+    { src: "https://api.iconify.design/twemoji/check-mark-button.svg?width=192&height=192", sizes: "192x192", type: "image/svg+xml" },
+    { src: "https://api.iconify.design/twemoji/check-mark-button.svg?width=512&height=512", sizes: "512x512", type: "image/svg+xml" }
+  ]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type:"application/json"});
+const link = document.createElement("link");
+link.rel = "manifest"; link.href = URL.createObjectURL(blob);
+document.head.appendChild(link);
+</script>
+
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;padding-bottom:60px}
+  header{background:#1a1d2e;padding:16px 16px 0;border-bottom:1px solid #2d3148;position:sticky;top:0;z-index:10}
+  .top{display:flex;justify-content:space-between;align-items:flex-start}
+  h1{font-size:18px;color:#a78bfa;font-weight:700}
+  .sub{font-size:12px;color:#64748b;margin-top:2px}
+  .view-btns{display:flex;gap:6px;padding-top:2px}
+  .view-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2d3148;background:transparent;color:#64748b}
+  .view-btn.active{border-color:#6c63ff;background:#6c63ff22;color:#a78bfa}
+  .cat-tabs{display:flex;gap:4px;margin-top:12px}
+  .cat-tab{padding:8px 12px;border-radius:8px 8px 0 0;border:none;background:transparent;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent}
+  .cat-tab.active{background:#0f1117}
+  .cat-tab[data-cat="estudio"].active{color:#6c63ff;border-color:#6c63ff}
+  .cat-tab[data-cat="trabajo"].active{color:#f59e0b;border-color:#f59e0b}
+  .cat-tab[data-cat="personal"].active{color:#10b981;border-color:#10b981}
+  main{padding:16px}
+  .alert{border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;display:flex;align-items:center;gap:8px}
+  .alert.overdue{background:#ef444415;border:1px solid #ef444440;color:#ef4444}
+  .alert.soon{background:#f59e0b15;border:1px solid #f59e0b40;color:#f59e0b}
+  .alert.info{background:#6c63ff15;border:1px solid #6c63ff40;color:#a78bfa;cursor:pointer}
+  .form-card{background:#1a1d2e;border-radius:12px;padding:14px;margin-bottom:18px;border:1px solid #2d3148}
+  .form-card input[type=text]{width:100%;background:#0f1117;border:1px solid #2d3148;border-radius:8px;color:#e2e8f0;padding:9px 12px;font-size:14px;outline:none}
+  .form-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .form-row select,.form-row input[type=date]{flex:1;min-width:100px;background:#0f1117;border:1px solid #2d3148;border-radius:8px;color:#e2e8f0;padding:9px 10px;font-size:13px;outline:none}
+  .add-btn{background:#6c63ff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
+  .task-card{background:#1a1d2e;border-radius:10px;padding:12px 14px;margin-bottom:10px;border:1px solid #2d3148;display:flex;align-items:flex-start;gap:10px}
+  .task-card.overdue{border-color:#ef444440}
+  .task-card.soon{border-color:#f59e0b40}
+  .check{width:20px;height:20px;border-radius:6px;border:2px solid #4b5563;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-top:2px}
+  .check.done{background:#6c63ff;border-color:#6c63ff}
+  .check.done::after{content:"✓";color:#fff;font-size:12px}
+  .task-name{font-size:14px;font-weight:600;word-break:break-word}
+  .task-name.done{text-decoration:line-through;color:#4b5563}
+  .task-meta{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center}
+  .badge{font-size:11px;font-weight:700;border-radius:5px;padding:2px 7px}
+  .badge.alta{color:#ef4444;background:#ef444420}
+  .badge.media{color:#f59e0b;background:#f59e0b20}
+  .badge.baja{color:#10b981;background:#10b98120}
+  .badge.overdue{color:#ef4444;background:#ef444420}
+  .badge.soon{color:#f59e0b;background:#f59e0b20}
+  .due-date{font-size:11px;color:#64748b}
+  .due-date.overdue{color:#ef4444}
+  .due-date.soon{color:#f59e0b}
+  .del-btn{margin-left:auto;background:transparent;border:none;color:#4b5563;cursor:pointer;font-size:16px;padding:2px;flex-shrink:0}
+  .empty{text-align:center;color:#4b5563;padding:40px 0;font-size:14px}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .stat-card{background:#1a1d2e;border-radius:12px;padding:16px;text-align:center;border:1px solid #2d3148}
+  .stat-num{font-size:28px;font-weight:800}
+  .stat-lbl{font-size:12px;color:#64748b;margin-top:4px}
+  .progress-section{background:#1a1d2e;border-radius:12px;padding:16px;border:1px solid #2d3148}
+  .progress-section h3{font-size:14px;font-weight:700;margin-bottom:14px}
+  .progress-item{margin-bottom:14px}
+  .progress-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .progress-bar{height:8px;border-radius:4px;background:#2d3148;overflow:hidden}
+  .progress-fill{height:100%;border-radius:4px;transition:width .5s}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top">
+    <div>
+      <h1>✅ Mi Gestor</h1>
+      <p class="sub" id="summary">0/0 tareas completadas</p>
+    </div>
+    <div class="view-btns">
+      <button class="view-btn active" onclick="setView('tasks')">Tareas</button>
+      <button class="view-btn" onclick="setView('stats')">Stats</button>
+    </div>
+  </div>
+  <div class="cat-tabs">
+    <button class="cat-tab active" data-cat="estudio" onclick="setTab('estudio')">📚 Estudio</button>
+    <button class="cat-tab" data-cat="trabajo" onclick="setTab('trabajo')">💼 Trabajo</button>
+    <button class="cat-tab" data-cat="personal" onclick="setTab('personal')">🏠 Personal</button>
+  </div>
+</header>
+
+<main>
+  <div id="view-tasks">
+    <div id="alerts"></div>
+    <div class="form-card">
+      <input type="text" id="task-name" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter')addTask()"/>
+      <div class="form-row">
+        <select id="task-cat">
+          <option value="estudio">📚 Estudio</option>
+          <option value="trabajo">💼 Trabajo</option>
+          <option value="personal">🏠 Personal</option>
+        </select>
+        <select id="task-priority">
+          <option value="Alta">🔴 Alta</option>
+          <option value="Media" selected>🟡 Media</option>
+          <option value="Baja">🟢 Baja</option>
+        </select>
+        <input type="date" id="task-due"/>
+        <button class="add-btn" onclick="addTask()">+ Agregar</button>
+      </div>
+    </div>
+    <div id="task-list"></div>
+  </div>
+
+  <div id="view-stats" style="display:none">
+    <div class="stat-grid">
+      <div class="stat-card" style="border-color:#6c63ff40"><div class="stat-num" style="color:#6c63ff" id="s-total">0</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-card" style="border-color:#10b98140"><div class="stat-num" style="color:#10b981" id="s-done">0</div><div class="stat-lbl">Completadas</div></div>
+      <div class="stat-card" style="border-color:#f59e0b40"><div class="stat-num" style="color:#f59e0b" id="s-pending">0</div><div class="stat-lbl">Pendientes</div></div>
+      <div class="stat-card" style="border-color:#ef444440"><div class="stat-num" style="color:#ef4444" id="s-overdue">0</div><div class="stat-lbl">Vencidas</div></div>
+    </div>
+    <div class="progress-section">
+      <h3>Progreso por categoría</h3>
+      <div class="progress-item">
+        <div class="progress-label"><span>📚 Estudio</span><span style="color:#6c63ff;font-weight:700" id="p-estudio-lbl">0/0 — 0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="p-estudio" style="background:#6c63ff;width:0%"></div></div>
+      </div>
+      <div class="progress-item">
+        <div class="progress-label"><span>💼 Trabajo</span><span style="color:#f59e0b;font-weight:700" id="p-trabajo-lbl">0/0 — 0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="p-trabajo" style="background:#f59e0b;width:0%"></div></div>
+      </div>
+      <div class="progress-item">
+        <div class="progress-label"><span>🏠 Personal</span><span style="color:#10b981;font-weight:700" id="p-personal-lbl">0/0 — 0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="p-personal" style="background:#10b981;width:0%"></div></div>
+      </div>
+      <h3 style="margin:18px 0 10px">Progreso total</h3>
+      <div class="progress-item">
+        <div class="progress-label"><span>General</span><span style="color:#a78bfa;font-weight:700" id="p-total-lbl">0/0 — 0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="p-total" style="background:#6c63ff;width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+let tasks = JSON.parse(localStorage.getItem("gm_tasks")||"[]");
+let currentTab = "estudio";
+
+function save(){ localStorage.setItem("gm_tasks", JSON.stringify(tasks)); }
+function today(){ return new Date().toISOString().split("T")[0]; }
+function statusOf(t){
+  if(t.done) return "done";
+  if(!t.due) return "ok";
+  const diff = new Date(t.due)-new Date(today());
+  if(diff<0) return "overdue";
+  if(diff<=2*86400000) return "soon";
+  return "ok";
+}
+
+// --- Notificaciones ---
+async function requestNotifications(){
+  if(!("Notification" in window)) return;
+  if(Notification.permission==="default") await Notification.requestPermission();
+}
+
+function scheduleNotification(task){
+  if(Notification.permission!=="granted"||!task.due) return;
+  const ms = new Date(task.due).getTime() - Date.now() - 86400000; // 1 día antes
+  if(ms>0) setTimeout(()=>{
+    new Notification("⏰ Tarea próxima a vencer", { body: task.name, icon:"https://api.iconify.design/twemoji/check-mark-button.svg" });
+  }, ms);
+}
+
+function checkOverdueNotifications(){
+  if(Notification.permission!=="granted") return;
+  const overdue = tasks.filter(t=>statusOf(t)==="overdue");
+  if(overdue.length){
+    new Notification(`⚠️ ${overdue.length} tarea${overdue.length>1?"s":""} vencida${overdue.length>1?"s":""}`,{
+      body: overdue.map(t=>t.name).join(", "),
+      icon:"https://api.iconify.design/twemoji/check-mark-button.svg"
+    });
+  }
+}
+
+// --- Service Worker (para PWA offline) ---
+if("serviceWorker" in navigator){
+  const swCode = `
+    self.addEventListener('install', e => self.skipWaiting());
+    self.addEventListener('activate', e => clients.claim());
+    self.addEventListener('fetch', e => e.respondWith(
+      caches.open('gestor-v1').then(cache =>
+        cache.match(e.request).then(r => r || fetch(e.request).then(res => {
+          cache.put(e.request, res.clone()); return res;
+        }))
+      )
+    ));
+  `;
+  const swBlob = new Blob([swCode],{type:"application/javascript"});
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+}
+
+// --- UI ---
+function setTab(cat){
+  currentTab=cat;
+  document.querySelectorAll(".cat-tab").forEach(b=>b.classList.toggle("active",b.dataset.cat===cat));
+  render();
+}
+
+function setView(v){
+  document.querySelectorAll(".view-btn").forEach((b,i)=>b.classList.toggle("active",(i===0&&v==="tasks")||(i===1&&v==="stats")));
+  document.getElementById("view-tasks").style.display=v==="tasks"?"block":"none";
+  document.getElementById("view-stats").style.display=v==="stats"?"block":"none";
+  if(v==="stats") renderStats();
+}
+
+function addTask(){
+  const name=document.getElementById("task-name").value.trim();
+  if(!name) return;
+  const t={id:Date.now(),name,cat:document.getElementById("task-cat").value,due:document.getElementById("task-due").value,priority:document.getElementById("task-priority").value,done:false};
+  tasks.push(t);
+  scheduleNotification(t);
+  document.getElementById("task-name").value="";
+  document.getElementById("task-due").value="";
+  save(); render();
+}
+
+function toggleTask(id){ const t=tasks.find(t=>t.id===id); if(t){t.done=!t.done;save();render();} }
+function deleteTask(id){ tasks=tasks.filter(t=>t.id!==id); save(); render(); }
+
+function render(){
+  const total=tasks.length, done=tasks.filter(t=>t.done).length;
+  document.getElementById("summary").textContent=`${done}/${total} tareas completadas`;
+  const overdue=tasks.filter(t=>statusOf(t)==="overdue").length;
+  const soon=tasks.filter(t=>statusOf(t)==="soon").length;
+  let alerts="";
+  if(Notification.permission!=="granted") alerts+=`<div class="alert info" onclick="requestNotifications()">🔔 Toca aquí para activar notificaciones</div>`;
+  if(overdue) alerts+=`<div class="alert overdue">⚠️ ${overdue} tarea${overdue>1?"s":""} vencida${overdue>1?"s":""}</div>`;
+  if(soon) alerts+=`<div class="alert soon">🔔 ${soon} tarea${soon>1?"s":""} vence pronto</div>`;
+  document.getElementById("alerts").innerHTML=alerts;
+
+  const cat=tasks.filter(t=>t.cat===currentTab).sort((a,b)=>{
+    const o={overdue:0,soon:1,ok:2,done:3};
+    return o[statusOf(a)]-o[statusOf(b)];
+  });
+
+  if(!cat.length){document.getElementById("task-list").innerHTML='<div class="empty">No hay tareas en esta categoría 🎉</div>';return;}
+  document.getElementById("task-list").innerHTML=cat.map(t=>{
+    const s=statusOf(t), pb=t.priority.toLowerCase();
+    return `<div class="task-card ${s}">
+      <div class="check ${t.done?"done":""}" onclick="toggleTask(${t.id})"></div>
+      <div style="flex:1;min-width:0">
+        <p class="task-name ${t.done?"done":""}">${t.name}</p>
+        <div class="task-meta">
+          <span class="badge ${pb}">${t.priority}</span>
+          ${t.due?`<span class="due-date ${s==="overdue"||s==="soon"?s:""}">📅 ${t.due}</span>`:""}
+          ${s==="overdue"?'<span class="badge overdue">Vencida</span>':""}
+          ${s==="soon"?'<span class="badge soon">Pronto</span>':""}
+        </div>
+      </div>
+      <button class="del-btn" onclick="deleteTask(${t.id})">🗑</button>
+    </div>`;
+  }).join("");
+}
+
+function renderStats(){
+  const total=tasks.length, done=tasks.filter(t=>t.done).length;
+  const overdue=tasks.filter(t=>statusOf(t)==="overdue").length;
+  document.getElementById("s-total").textContent=total;
+  document.getElementById("s-done").textContent=done;
+  document.getElementById("s-pending").textContent=total-done;
+  document.getElementById("s-overdue").textContent=overdue;
+  document.getElementById("p-total-lbl").textContent=`${done}/${total} — ${total?Math.round(done/total*100):0}%`;
+  document.getElementById("p-total").style.width=`${total?Math.round(done/total*100):0}%`;
+  ["estudio","trabajo","personal"].forEach(cat=>{
+    const ct=tasks.filter(t=>t.cat===cat);
+    const cd=ct.filter(t=>t.done).length;
+    const pct=ct.length?Math.round(cd/ct.length*100):0;
+    document.getElementById(`p-${cat}-lbl`).textContent=`${cd}/${ct.length} — ${pct}%`;
+    document.getElementById(`p-${cat}`).style.width=`${pct}%`;
+  });
+}
+
+document.getElementById("task-due").min=today();
+requestNotifications();
+checkOverdueNotifications();
+render();
+</script>
+</body>
+</html>
