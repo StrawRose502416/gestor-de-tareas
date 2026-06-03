@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.strawrose502416.twa",
+        "sha256_cert_fingerprints": ["2E:AB:E7:C6:52:34:54:D5:14:0F:5C:B7:A1:51:7D:78:E2:DB:9A:1B:03:6C:BE:C2:18:F4:B6:56:27:72:CF:FE"]
+      }
+    }]
