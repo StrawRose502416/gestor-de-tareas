@@ -5,32 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="theme-color" content="#0f1117"/>
+<meta name="theme-color" content="#6c63ff"/>
 <meta name="description" content="Gestor de tareas personal"/>
 <title>Mi Gestor de Tareas</title>
-
-<!-- PWA Manifest inline -->
+<link rel="manifest" href="./manifest.json"/>
 <script>
-const manifest = {
-  name: "Mi Gestor de Tareas",
-  short_name: "Gestor",
-  description: "Gestor de tareas personal",
-  start_url: ".",
-  display: "standalone",
-  background_color: "#0f1117",
-  theme_color: "#6c63ff",
-  orientation: "portrait",
-  icons: [
-    { src: "https://api.iconify.design/twemoji/check-mark-button.svg?width=192&height=192", sizes: "192x192", type: "image/svg+xml" },
-    { src: "https://api.iconify.design/twemoji/check-mark-button.svg?width=512&height=512", sizes: "512x512", type: "image/svg+xml" }
-  ]
-};
-const blob = new Blob([JSON.stringify(manifest)], {type:"application/json"});
-const link = document.createElement("link");
-link.rel = "manifest"; link.href = URL.createObjectURL(blob);
-document.head.appendChild(link);
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js");
+  }
 </script>
-
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;padding-bottom:60px}
@@ -177,49 +160,26 @@ function statusOf(t){
   return "ok";
 }
 
-// --- Notificaciones ---
 async function requestNotifications(){
   if(!("Notification" in window)) return;
   if(Notification.permission==="default") await Notification.requestPermission();
+  render();
 }
 
 function scheduleNotification(task){
   if(Notification.permission!=="granted"||!task.due) return;
-  const ms = new Date(task.due).getTime() - Date.now() - 86400000; // 1 día antes
+  const ms = new Date(task.due).getTime()-Date.now()-86400000;
   if(ms>0) setTimeout(()=>{
-    new Notification("⏰ Tarea próxima a vencer", { body: task.name, icon:"https://api.iconify.design/twemoji/check-mark-button.svg" });
+    new Notification("⏰ Tarea próxima a vencer",{body:task.name});
   }, ms);
 }
 
 function checkOverdueNotifications(){
   if(Notification.permission!=="granted") return;
-  const overdue = tasks.filter(t=>statusOf(t)==="overdue");
-  if(overdue.length){
-    new Notification(`⚠️ ${overdue.length} tarea${overdue.length>1?"s":""} vencida${overdue.length>1?"s":""}`,{
-      body: overdue.map(t=>t.name).join(", "),
-      icon:"https://api.iconify.design/twemoji/check-mark-button.svg"
-    });
-  }
+  const od = tasks.filter(t=>statusOf(t)==="overdue");
+  if(od.length) new Notification(`⚠️ ${od.length} tarea${od.length>1?"s":""} vencida${od.length>1?"s":""}`,{body:od.map(t=>t.name).join(", ")});
 }
 
-// --- Service Worker (para PWA offline) ---
-if("serviceWorker" in navigator){
-  const swCode = `
-    self.addEventListener('install', e => self.skipWaiting());
-    self.addEventListener('activate', e => clients.claim());
-    self.addEventListener('fetch', e => e.respondWith(
-      caches.open('gestor-v1').then(cache =>
-        cache.match(e.request).then(r => r || fetch(e.request).then(res => {
-          cache.put(e.request, res.clone()); return res;
-        }))
-      )
-    ));
-  `;
-  const swBlob = new Blob([swCode],{type:"application/javascript"});
-  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
-}
-
-// --- UI ---
 function setTab(cat){
   currentTab=cat;
   document.querySelectorAll(".cat-tab").forEach(b=>b.classList.toggle("active",b.dataset.cat===cat));
@@ -257,15 +217,10 @@ function render(){
   if(overdue) alerts+=`<div class="alert overdue">⚠️ ${overdue} tarea${overdue>1?"s":""} vencida${overdue>1?"s":""}</div>`;
   if(soon) alerts+=`<div class="alert soon">🔔 ${soon} tarea${soon>1?"s":""} vence pronto</div>`;
   document.getElementById("alerts").innerHTML=alerts;
-
-  const cat=tasks.filter(t=>t.cat===currentTab).sort((a,b)=>{
-    const o={overdue:0,soon:1,ok:2,done:3};
-    return o[statusOf(a)]-o[statusOf(b)];
-  });
-
+  const cat=tasks.filter(t=>t.cat===currentTab).sort((a,b)=>({overdue:0,soon:1,ok:2,done:3})[statusOf(a)]-({overdue:0,soon:1,ok:2,done:3})[statusOf(b)]);
   if(!cat.length){document.getElementById("task-list").innerHTML='<div class="empty">No hay tareas en esta categoría 🎉</div>';return;}
   document.getElementById("task-list").innerHTML=cat.map(t=>{
-    const s=statusOf(t), pb=t.priority.toLowerCase();
+    const s=statusOf(t),pb=t.priority.toLowerCase();
     return `<div class="task-card ${s}">
       <div class="check ${t.done?"done":""}" onclick="toggleTask(${t.id})"></div>
       <div style="flex:1;min-width:0">
@@ -283,17 +238,15 @@ function render(){
 }
 
 function renderStats(){
-  const total=tasks.length, done=tasks.filter(t=>t.done).length;
-  const overdue=tasks.filter(t=>statusOf(t)==="overdue").length;
+  const total=tasks.length,done=tasks.filter(t=>t.done).length;
   document.getElementById("s-total").textContent=total;
   document.getElementById("s-done").textContent=done;
   document.getElementById("s-pending").textContent=total-done;
-  document.getElementById("s-overdue").textContent=overdue;
+  document.getElementById("s-overdue").textContent=tasks.filter(t=>statusOf(t)==="overdue").length;
   document.getElementById("p-total-lbl").textContent=`${done}/${total} — ${total?Math.round(done/total*100):0}%`;
   document.getElementById("p-total").style.width=`${total?Math.round(done/total*100):0}%`;
   ["estudio","trabajo","personal"].forEach(cat=>{
-    const ct=tasks.filter(t=>t.cat===cat);
-    const cd=ct.filter(t=>t.done).length;
+    const ct=tasks.filter(t=>t.cat===cat),cd=ct.filter(t=>t.done).length;
     const pct=ct.length?Math.round(cd/ct.length*100):0;
     document.getElementById(`p-${cat}-lbl`).textContent=`${cd}/${ct.length} — ${pct}%`;
     document.getElementById(`p-${cat}`).style.width=`${pct}%`;
